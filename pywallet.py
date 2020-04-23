@@ -1086,7 +1086,7 @@ def b58encode(v):
     # leading 0-bytes in the input become leading-1s
     nPad = 0
     for c in v:
-        if c == '\0': nPad += 1
+        if c == 0: nPad += 1
         else: break
 
     return (__b58chars[0]*nPad) + result
@@ -1760,17 +1760,17 @@ def main():
         if p2sh or bech32:
             for i in range(len(json_db['keys'])):
                 if 'pubkey' in json_db['keys'][i].keys():
-                    pub = binascii.hexlify(json_db['keys'][i]['pubkey'].encode())
-
+                    pub = json_db['keys'][i]['pubkey'].encode()
                     if p2sh:
                         addrtype = 0xc4 if options.testnet else 0x05
-                        json_db['keys'][i]['p2sh'] = public_key_to_bc_address(b'\x00\x14' + hash_160(pub))
+
+                        json_db['keys'][i]['p2sh'] = public_key_to_bc_address(b'\x00\x14' + hash_160(binascii.unhexlify(pub)))
 
                     if bech32:
                         hrp = 'tb' if options.testnet else 'bc'
-                        json_db['keys'][i]['bech32'] = encode(hrp, 0, bytearray(hash_160(pub)))
+                        json_db['keys'][i]['bech32'] = encode(hrp, 0, bytearray(hash_160(binascii.unhexlify(pub))))
 
-        print(json.dumps(json_db, sort_keys=True, indent=4))
+        print(json.dumps(json_db, sort_keys=True, indent=4, separators=(', ', ': ')))
 
     elif options.key:
         if options.key in private_keys:
