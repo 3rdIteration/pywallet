@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 
-# PyWallet 1.2.3 (Public Domain)
+# PyWallet 1.2.4 (Public Domain)
+# http://github.com/3rdIteration/pywallet
+# Most of the actual PyWallet code placed in the public domain.
+# PyWallet includes portions of free software, listed below.
+
+# Forked from PyWallet 1.2.3 (Public Domain)
 # http://github.com/joric/pywallet
 # Most of the actual PyWallet code placed in the public domain.
 # PyWallet includes portions of free software, listed below.
@@ -24,20 +29,20 @@
 # https://github.com/sipa/bech32
 # Copyright (c) 2017 Pieter Wuille
 
-from bsddb.db import *
+from bsddb3 import *
 import os, sys, time
 import json
 import logging
 import struct
-import StringIO
+from io import StringIO
 import traceback
 import socket
 import types
 import string
-import exceptions
 import hashlib
 import random
 import math
+import binascii
 
 addrtype = 0
 json_db = {}
@@ -703,7 +708,7 @@ class Crypter_pycrypto( object ):
         if nDerivationMethod != 0:
             return 0
         data = vKeyData + vSalt
-        for i in xrange(nDerivIterations):
+        for i in range(nDerivIterations):
             data = hashlib.sha512(data).digest()
         self.SetKey(data[0:32])
         self.SetIV(data[32:32+16])
@@ -785,7 +790,7 @@ class Crypter_pure(object):
         if nDerivationMethod != 0:
             return 0
         data = vKeyData + vSalt
-        for i in xrange(nDerivIterations):
+        for i in range(nDerivIterations):
             data = hashlib.sha512(data).digest()
         self.SetKey(data[0:32])
         self.SetIV(data[32:32+16])
@@ -807,12 +812,12 @@ class Crypter_pure(object):
 
 # secp256k1
 
-_p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
-_r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
-_b = 0x0000000000000000000000000000000000000000000000000000000000000007L
-_a = 0x0000000000000000000000000000000000000000000000000000000000000000L
-_Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
-_Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
+_p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+_r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+_b = 0x0000000000000000000000000000000000000000000000000000000000000007
+_a = 0x0000000000000000000000000000000000000000000000000000000000000000
+_Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
+_Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8
 
 # python-ecdsa code (EC_KEY implementation)
 
@@ -863,7 +868,7 @@ class Point( object ):
     def __mul__( self, other ):
         def leftmost_bit( x ):
             assert x > 0
-            result = 1L
+            result = 1
             while result <= x: result = 2 * result
             return result / 2
 
@@ -939,11 +944,11 @@ class Public_key( object ):
         self.point = point
         n = generator.order()
         if not n:
-            raise RuntimeError, "Generator point must have order."
+            raise RuntimeError("Generator point must have order.")
         if not n * point == INFINITY:
-            raise RuntimeError, "Generator point order is bad."
+            raise RuntimeError("Generator point order is bad.")
         if point.x() < 0 or n <= point.x() or point.y() < 0 or n <= point.y():
-            raise RuntimeError, "Generator point has x or y out of range."
+            raise RuntimeError("Generator point has x or y out of range.")
 
     def verifies( self, hash, signature ):
         G = self.generator
@@ -978,10 +983,10 @@ class Private_key( object ):
         k = random_k % n
         p1 = k * G
         r = p1.x()
-        if r == 0: raise RuntimeError, "amazingly unlucky random number r"
+        if r == 0: raise RuntimeError("amazingly unlucky random number r")
         s = ( inverse_mod( k, n ) * \
                     ( hash + ( self.secret_multiplier * r ) % n ) ) % n
-        if s == 0: raise RuntimeError, "amazingly unlucky random number s"
+        if s == 0: raise RuntimeError("amazingly unlucky random number s")
         return Signature( r, s )
 
 class EC_KEY(object):
@@ -1050,7 +1055,7 @@ def public_key_to_bc_address(public_key):
     return hash_160_to_bc_address(h160)
 
 def hash_160_to_bc_address(h160):
-    vh160 = chr(addrtype) + h160
+    vh160 = chr(addrtype).encode() + h160
     h = Hash(vh160)
     addr = vh160 + h[0:4]
     return b58encode(addr)
@@ -1066,9 +1071,9 @@ def b58encode(v):
     """ encode v, which is a string of bytes, to base58.        
     """
 
-    long_value = 0L
+    long_value = 0
     for (i, c) in enumerate(v[::-1]):
-        long_value += (256**i) * ord(c)
+        long_value += (256**i) * c
 
     result = ''
     while long_value >= __b58base:
@@ -1089,7 +1094,7 @@ def b58encode(v):
 def b58decode(v, length):
     """ decode v into a string of len bytes
     """
-    long_value = 0L
+    long_value = 0
     for (i, c) in enumerate(v[::-1]):
         long_value += __b58chars.find(c) * (__b58base**i)
 
@@ -1141,8 +1146,8 @@ def PrivKeyToSecret(privkey):
         return privkey[8:8+32]
 
 def SecretToASecret(secret, compressed=False):
-    vchIn = chr((addrtype+128)&255) + secret
-    if compressed: vchIn += '\01'
+    vchIn = chr((addrtype+128)&255).encode()[1:] + secret
+    if compressed: vchIn += b"\01"
     return EncodeBase58Check(vchIn)
 
 def ASecretToSecret(sec):
@@ -1176,8 +1181,8 @@ def is_compressed(sec):
 # bitcointools wallet.dat handling code
 
 def create_env(db_dir):
-    db_env = DBEnv(0)
-    r = db_env.open(db_dir, (DB_CREATE|DB_INIT_LOCK|DB_INIT_LOG|DB_INIT_MPOOL|DB_INIT_TXN|DB_THREAD|DB_RECOVER))
+    db_env = db.DBEnv(0)
+    r = db_env.open(db_dir, (db.DB_CREATE|db.DB_INIT_LOCK|db.DB_INIT_LOG|db.DB_INIT_MPOOL|db.DB_INIT_TXN|db.DB_THREAD|db.DB_RECOVER))
     return db_env
 
 def parse_CAddress(vds):
@@ -1201,7 +1206,7 @@ def parse_BlockLocator(vds):
     nHashes = vds.read_compact_size()
     if nHashes==0:
         d['hashes'].append(str('\0'*32))
-    for i in xrange(nHashes):
+    for i in range(nHashes):
         d['hashes'].append(vds.read_bytes(32))
     return d
 
@@ -1263,7 +1268,7 @@ class BCDataStream(object):
         except IndexError:
             raise SerializationError("attempt to read past end of buffer")
 
-        return self.read_bytes(length)
+        return self.read_bytes(length).decode()
 
     def write_string(self, string):
         # Length-encoded as with read-string
@@ -1297,7 +1302,7 @@ class BCDataStream(object):
     def write_uint64(self, val): return self._write_num('<Q', val)
 
     def read_compact_size(self):
-        size = ord(self.input[self.read_cursor])
+        size = self.input[self.read_cursor]
         self.read_cursor += 1
         if size == 253:
             size = self._read_num('<H')
@@ -1332,18 +1337,18 @@ class BCDataStream(object):
         self.write(s)
 
 def open_wallet(db_env, writable=False):
-    db = DB(db_env)
-    flags = DB_THREAD | (DB_CREATE if writable else DB_RDONLY)
+    wallet_db = db.DB(db_env)
+    flags = db.DB_THREAD | (db.DB_CREATE if writable else db.DB_RDONLY)
     try:
-        r = db.open("wallet.dat", "main", DB_BTREE, flags)
-    except DBError:
+        r = wallet_db.open("wallet.dat", "main", db.DB_BTREE, flags)
+    except db.DBError:
         r = True
 
     if r is not None:
         logging.error("Couldn't open wallet.dat/main. Try quitting Bitcoin and running this again.")
         sys.exit(1)
     
-    return db
+    return wallet_db
 
 def parse_wallet(db, item_callback):
     kds = BCDataStream()
@@ -1418,11 +1423,11 @@ def parse_wallet(db, item_callback):
             
             item_callback(type, d)
 
-        except Exception, e:
+        except:
             traceback.print_exc()
-            print("ERROR parsing wallet.dat, type %s" % type)
-            print("key data in hex: %s"%key.encode('hex_codec'))
-            print("value data in hex: %s"%value.encode('hex_codec'))
+            print("ERROR parsing wallet.dat, type ", type)
+            print("key data in hex: ", binascii.hexlify(key))
+            print("value data in hex: ", binascii.hexlify(value))
             sys.exit(1)
     
 def update_wallet(db, type, data):
@@ -1493,23 +1498,23 @@ def update_wallet(db, type, data):
             for h in d['hashes']:
                 vds.write(h)
         else:
-            print "Unknown key type: "+type
+            print("Unknown key type: ",type)
 
         # Write the key/value pair to the database
         db.put(kds.input, vds.input)
 
-    except Exception, e:
+    except:
         print("ERROR writing to wallet.dat, type %s"%type)
         print("data dictionary: %r"%data)
         traceback.print_exc()
 
 def rewrite_wallet(db_env, destFileName, pre_put_callback=None):
-    db = open_wallet(db_env)
+    walet_db = open_wallet(db_env)
 
-    db_out = DB(db_env)
+    db_out = db.DB(db_env)
     try:
-        r = db_out.open(destFileName, "main", DB_BTREE, DB_CREATE)
-    except DBError:
+        r = db_out.open(destFileName, "main", db.DB_BTREE, db.DB_CREATE)
+    except db.DBError:
         r = True
 
     if r is not None:
@@ -1520,9 +1525,9 @@ def rewrite_wallet(db_env, destFileName, pre_put_callback=None):
         if (pre_put_callback is None or pre_put_callback(type, d)):
             db_out.put(d["__key__"], d["__value__"])
 
-    parse_wallet(db, item_callback)
+    parse_wallet(walet_db, item_callback)
     db_out.close()
-    db.close()
+    walet_db.close()
 
 # end of bitcointools wallet.dat handling code
 
@@ -1557,11 +1562,11 @@ def read_wallet(json_db, db_env, print_wallet, print_wallet_transactions, transa
 
         elif type == "key":
             addr = public_key_to_bc_address(d['public_key'])
-            compressed = d['public_key'][0] != '\04'
+            compressed = d['public_key'][0] != 4
             sec = SecretToASecret(PrivKeyToSecret(d['private_key']), compressed)
             private_keys.append(sec)
             pubkey = d['public_key']
-            json_db['keys'].append({'addr' : addr, 'sec' : sec, 'pubkey': pubkey.encode('hex')})
+            json_db['keys'].append({'addr' : addr, 'sec' : sec, 'pubkey': binascii.hexlify(pubkey).decode()})
 
         elif type == "wkey":
             if not json_db.has_key('wkey'): json_db['wkey'] = []
@@ -1610,7 +1615,8 @@ def read_wallet(json_db, db_env, print_wallet, print_wallet_transactions, transa
             json_db['acentry'] = (d['account'], d['nCreditDebit'], d['otherAccount'], time.ctime(d['nTime']), d['n'], d['comment'])
 
         elif type == "bestblock":
-            json_db['bestblock'] = d['hashes'][0][::-1].encode('hex_codec')
+            bestblockdata = d['hashes'][0][::-1]
+            json_db['bestblock'] = binascii.hexlify(bestblockdata.encode()).decode()
 
         else:
             json_db[type] = 'unsupported'
@@ -1671,8 +1677,8 @@ def importprivkey(db, sec):
     public_key = GetPubKey(pkey, compressed)
     addr = public_key_to_bc_address(public_key)
 
-    print "Address: %s" % addr
-    print "Privkey: %s" % SecretToASecret(secret, compressed)
+    print("Address:", addr)
+    print("Privkey: ", SecretToASecret(secret, compressed))
 
     global crypter, password, json_db
 
@@ -1721,7 +1727,7 @@ def main():
     (options, args) = parser.parse_args()
 
     if options.dump is None and options.key is None:
-        print "A mandatory option is missing\n"
+        print("A mandatory option is missing")
         parser.print_help()
         sys.exit(1)
 
@@ -1752,30 +1758,30 @@ def main():
     if options.dump:
 
         if p2sh or bech32:
-            for i in xrange(len(json_db['keys'])):
+            for i in range(len(json_db['keys'])):
                 if 'pubkey' in json_db['keys'][i].keys():
-                    pub = json_db['keys'][i]['pubkey'].decode('hex')
+                    pub = binascii.hexlify(json_db['keys'][i]['pubkey'].encode())
 
                     if p2sh:
                         addrtype = 0xc4 if options.testnet else 0x05
-                        json_db['keys'][i]['p2sh'] = public_key_to_bc_address('\x00\x14' + hash_160(pub))
+                        json_db['keys'][i]['p2sh'] = public_key_to_bc_address(b'\x00\x14' + hash_160(pub))
 
                     if bech32:
                         hrp = 'tb' if options.testnet else 'bc'
                         json_db['keys'][i]['bech32'] = encode(hrp, 0, bytearray(hash_160(pub)))
 
-        print json.dumps(json_db, sort_keys=True, indent=4)
+        print(json.dumps(json_db, sort_keys=True, indent=4))
 
     elif options.key:
         if options.key in private_keys:
-            print "Already exists"
+            print("Already exists")
         else:    
             db = open_wallet(db_env, writable=True)
 
             if importprivkey(db, options.key):
-                print "Imported successfully"
+                print("Imported successfully")
             else:
-                print "Bad private key"
+                print("Bad private key")
 
             db.close()
 

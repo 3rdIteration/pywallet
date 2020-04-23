@@ -10,7 +10,7 @@ Options:
   --password=PASSWORD  password for the encrypted wallet
 
 Dependencies:
-  bsddb (python 2.7.2 msi includes bsddb by default)
+  bsddb (Can be installed via PIP, manual whl file download ruired for Windows)
 
 Links:
-  http://www.python.org/ftp/python/2.7.2/python-2.7.2.msi
+  Windows whl file download: https://www.lfd.uci.edu/~gohlke/pythonlibs/#bsddb3
