@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# PyWallet 1.2.4 (Public Domain)
+# PyWallet 1.3.0 (Public Domain)
 # http://github.com/3rdIteration/pywallet
 # Most of the actual PyWallet code placed in the public domain.
 # PyWallet includes portions of free software, listed below.
@@ -707,7 +707,7 @@ class Crypter_pycrypto( object ):
     def SetKeyFromPassphrase(self, vKeyData, vSalt, nDerivIterations, nDerivationMethod):
         if nDerivationMethod != 0:
             return 0
-        data = vKeyData + vSalt
+        data = vKeyData.encode() + vSalt
         for i in range(nDerivIterations):
             data = hashlib.sha512(data).digest()
         self.SetKey(data[0:32])
@@ -879,13 +879,14 @@ class Point( object ):
         assert e > 0
         e3 = 3 * e
         negative_self = Point( self.__curve, self.__x, -self.__y, self.__order )
-        i = leftmost_bit( e3 ) / 2
+        i = int(leftmost_bit( e3 ) / 2)
         result = self
         while i > 1:
             result = result.double()
             if ( e3 & i ) != 0 and ( e & i ) == 0: result = result + self
             if ( e3 & i ) == 0 and ( e & i ) != 0: result = result + negative_self
-            i = i / 2
+            i = int(i / 2)
+
         return result
 
     def __rmul__( self, other ):
@@ -975,7 +976,7 @@ class Private_key( object ):
             'a00706052b8104000aa14403420004' + \
             '%064x' % self.public_key.point.x() + \
             '%064x' % self.public_key.point.y()
-        return hex_der_key.decode('hex')
+        return hex_der_key
 
     def sign( self, hash, random_k ):
         G = self.public_key.generator
@@ -1024,7 +1025,7 @@ def i2d_ECPrivateKey(pkey, compressed=False):
             '%064x' % _r + \
             '020101a144034200'
 
-    return key.decode('hex') + i2o_ECPublicKey(pkey, compressed)
+    return key + i2o_ECPublicKey(pkey, compressed)
 
 def i2o_ECPublicKey(pkey, compressed=False):
     # public keys are 65 bytes long (520 bits)
@@ -1041,7 +1042,7 @@ def i2o_ECPublicKey(pkey, compressed=False):
             '%064x' % pkey.pubkey.point.x() + \
             '%064x' % pkey.pubkey.point.y()
 
-    return key.decode('hex')
+    return key
 
 # bitcointools hashes and base58 implementation
 
@@ -1162,7 +1163,7 @@ def regenerate_key(sec):
     if not b:
         return False
     b = b[0:32]
-    secret = int('0x' + b.encode('hex'), 16)
+    secret = int('0x' + b.hex(), 16)
     return EC_KEY(secret)
 
 def GetPubKey(pkey, compressed=False):
@@ -1172,7 +1173,7 @@ def GetPrivKey(pkey, compressed=False):
     return i2d_ECPrivateKey(pkey, compressed)
 
 def GetSecret(pkey):
-    return ('%064x' % pkey.secret).decode('hex')
+    return ('%064x' % pkey.secret)
 
 def is_compressed(sec):
     b = ASecretToSecret(sec)
@@ -1336,16 +1337,16 @@ class BCDataStream(object):
         s = struct.pack(format, num)
         self.write(s)
 
-def open_wallet(db_env, writable=False):
+def open_wallet(db_env, filename, writable=False):
     wallet_db = db.DB(db_env)
     flags = db.DB_THREAD | (db.DB_CREATE if writable else db.DB_RDONLY)
     try:
-        r = wallet_db.open("wallet.dat", "main", db.DB_BTREE, flags)
+        r = wallet_db.open(filename, "main", db.DB_BTREE, flags)
     except db.DBError:
         r = True
 
     if r is not None:
-        logging.error("Couldn't open wallet.dat/main. Try quitting Bitcoin and running this again.")
+        logging.error("Couldn't open ", filename, "/main. Try quitting Bitcoin and running this again.")
         sys.exit(1)
     
     return wallet_db
@@ -1508,8 +1509,8 @@ def update_wallet(db, type, data):
         print("data dictionary: %r"%data)
         traceback.print_exc()
 
-def rewrite_wallet(db_env, destFileName, pre_put_callback=None):
-    walet_db = open_wallet(db_env)
+def rewrite_wallet(db_env, filename, destFileName, pre_put_callback=None):
+    walet_db = open_wallet(db_env, filename = filename)
 
     db_out = db.DB(db_env)
     try:
@@ -1533,10 +1534,10 @@ def rewrite_wallet(db_env, destFileName, pre_put_callback=None):
 
 # wallet.dat reader / writer
 
-def read_wallet(json_db, db_env, print_wallet, print_wallet_transactions, transaction_filter):
+def read_wallet(json_db, db_env, filename, print_wallet, print_wallet_transactions, transaction_filter):
     global password
 
-    db = open_wallet(db_env)
+    db = open_wallet(db_env, filename)
 
     json_db['keys'] = []
     json_db['pool'] = []
@@ -1576,16 +1577,16 @@ def read_wallet(json_db, db_env, print_wallet, print_wallet_transactions, transa
             addr = public_key_to_bc_address(d['public_key'])
             ckey = d['crypted_key']
             pubkey = d['public_key']
-            json_db['keys'].append( {'addr' : addr, 'ckey': ckey.encode('hex'), 'pubkey': pubkey.encode('hex') })
+            json_db['keys'].append( {'addr' : addr, 'ckey': ckey, 'pubkey': pubkey })
 
         elif type == "mkey":
             mkey = {}
             mkey['nID'] = d['nID']
-            mkey['crypted_key'] = d['crypted_key'].encode('hex')
-            mkey['salt'] = d['salt'].encode('hex')
+            mkey['crypted_key'] = d['crypted_key'].hex()
+            mkey['salt'] = d['salt'].hex()
             mkey['nDeriveIterations'] = d['nDeriveIterations']
             mkey['nDerivationMethod'] = d['nDerivationMethod']
-            mkey['vchOtherDerivationParameters'] = d['vchOtherDerivationParameters'].encode('hex')
+            mkey['vchOtherDerivationParameters'] = d['vchOtherDerivationParameters'].hex()
             json_db['mkey'] = mkey
 
             if password:
@@ -1640,22 +1641,22 @@ def read_wallet(json_db, db_env, print_wallet, print_wallet_transactions, transa
     if crypted and password:
         check = True
         for k in json_db['keys']:
-            ckey = k['ckey'].decode('hex')
-            public_key = k['pubkey'].decode('hex')
+            ckey = k['ckey']
+            public_key = k['pubkey']
             crypter.SetIV(Hash(public_key))
             secret = crypter.Decrypt(ckey)
             compressed = public_key[0] != '\04'
 
             if check:
                 check = False
-                pkey = EC_KEY(int('0x' + secret.encode('hex'), 16))
-                if public_key != GetPubKey(pkey, compressed):
+                pkey = EC_KEY(int('0x' + secret.hex(), 16))
+                if public_key.hex() != GetPubKey(pkey, compressed):
                     logging.error("wrong password")
                     sys.exit(1)
 
             sec = SecretToASecret(secret, compressed)
             k['sec'] = sec
-            k['secret'] = secret.encode('hex')
+            k['secret'] = secret.hex()
             del(k['ckey'])
             del(k['secret'])
             del(k['pubkey'])
@@ -1707,7 +1708,7 @@ def main():
 
     global addrtype
 
-    parser = OptionParser(usage="%prog [options]", version="%prog 1.2")
+    parser = OptionParser(usage="%prog [options]", version="%prog 1.3.0-cryptoguide")
 
     parser.add_option("--dumpwallet", dest="dump", action="store_true",
         help="dump wallet in json format")
@@ -1717,6 +1718,9 @@ def main():
 
     parser.add_option("--datadir", dest="datadir", 
         help="wallet directory (defaults to bitcoin default)")
+
+    parser.add_option("--walletfile", dest="walletfile", default="wallet.dat",
+        help="Specify custom filename for wallet file (As opposed to wallet.dat)")
 
     parser.add_option("--testnet", dest="testnet", action="store_true",
         help="use testnet subdirectory and address type")
@@ -1750,7 +1754,7 @@ def main():
     if options.password:
         password = options.password
 
-    read_wallet(json_db, db_env, True, True, "")
+    read_wallet(json_db, db_env, options.walletfile, True, True, "")
 
     p2sh = json_db.get('minversion') >= 100000
     bech32 = json_db.get('minversion') >= 159900
@@ -1776,7 +1780,7 @@ def main():
         if options.key in private_keys:
             print("Already exists")
         else:    
-            db = open_wallet(db_env, writable=True)
+            db = open_wallet(db_env, writable=True, filename=options.walletfile)
 
             if importprivkey(db, options.key):
                 print("Imported successfully")
