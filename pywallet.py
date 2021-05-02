@@ -1617,7 +1617,14 @@ def read_wallet(json_db, db_env, filename, print_wallet, print_wallet_transactio
 
         elif type == "bestblock":
             bestblockdata = d['hashes'][0][::-1]
-            json_db['bestblock'] = binascii.hexlify(bestblockdata.encode()).decode()
+
+            # The format of the bestblockdata varies depending on how old the wallet file is
+            try:
+                bestblockdata = bestblockdata.encode()
+            except AttributeError:
+                pass
+            
+            json_db['bestblock'] = binascii.hexlify(bestblockdata).decode()
 
         else:
             json_db[type] = 'unsupported'
