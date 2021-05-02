@@ -1566,8 +1566,8 @@ def read_wallet(json_db, db_env, filename, print_wallet, print_wallet_transactio
             compressed = d['public_key'][0] != 4
             sec = SecretToASecret(PrivKeyToSecret(d['private_key']), compressed)
             private_keys.append(sec)
-            pubkey = d['public_key']
-            json_db['keys'].append({'addr' : addr, 'sec' : sec, 'pubkey': binascii.hexlify(pubkey).decode()})
+            pubkey = d['public_key'].hex()
+            json_db['keys'].append({'addr' : addr, 'sec' : sec, 'pubkey': pubkey })
 
         elif type == "wkey":
             if not json_db.has_key('wkey'): json_db['wkey'] = []
@@ -1576,7 +1576,7 @@ def read_wallet(json_db, db_env, filename, print_wallet, print_wallet_transactio
         elif type == "ckey":
             addr = public_key_to_bc_address(d['public_key'])
             ckey = d['crypted_key']
-            pubkey = d['public_key']
+            pubkey = d['public_key'].hex()
             json_db['keys'].append( {'addr' : addr, 'ckey': ckey, 'pubkey': pubkey })
 
         elif type == "mkey":
@@ -1623,7 +1623,7 @@ def read_wallet(json_db, db_env, filename, print_wallet, print_wallet_transactio
                 bestblockdata = bestblockdata.encode()
             except AttributeError:
                 pass
-            
+
             json_db['bestblock'] = binascii.hexlify(bestblockdata).decode()
 
         else:
@@ -1632,13 +1632,6 @@ def read_wallet(json_db, db_env, filename, print_wallet, print_wallet_transactio
     parse_wallet(db, item_callback)
 
     db.close()
-
-    for k in json_db['keys']:
-        addr = k['addr']
-        if addr in json_db['names'].keys():
-            k["label"] = json_db['names'][addr]
-        else:
-            k["reserve"] = 1
 
     crypted = 'mkey' in json_db.keys()
 
@@ -1650,14 +1643,14 @@ def read_wallet(json_db, db_env, filename, print_wallet, print_wallet_transactio
         for k in json_db['keys']:
             ckey = k['ckey']
             public_key = k['pubkey']
-            crypter.SetIV(Hash(public_key))
+            crypter.SetIV(Hash(binascii.unhexlify(public_key)))
             secret = crypter.Decrypt(ckey)
             compressed = public_key[0] != '\04'
 
             if check:
                 check = False
                 pkey = EC_KEY(int('0x' + secret.hex(), 16))
-                if public_key.hex() != GetPubKey(pkey, compressed):
+                if public_key != GetPubKey(pkey, compressed):
                     logging.error("wrong password")
                     sys.exit(1)
 
@@ -1666,11 +1659,9 @@ def read_wallet(json_db, db_env, filename, print_wallet, print_wallet_transactio
             k['secret'] = secret.hex()
             del(k['ckey'])
             del(k['secret'])
-            del(k['pubkey'])
             private_keys.append(sec)
 
     del(json_db['pool'])
-    del(json_db['names'])
 
 def importprivkey(db, sec):
 
@@ -1771,10 +1762,11 @@ def main():
         if p2sh or bech32:
             for i in range(len(json_db['keys'])):
                 if 'pubkey' in json_db['keys'][i].keys():
-                    pub = json_db['keys'][i]['pubkey'].encode()
+
+                    pub = json_db['keys'][i]['pubkey']
+
                     if p2sh:
                         addrtype = 0xc4 if options.testnet else 0x05
-
                         json_db['keys'][i]['p2sh'] = public_key_to_bc_address(b'\x00\x14' + hash_160(binascii.unhexlify(pub)))
 
                     if bech32:
