@@ -18,4 +18,4 @@ Links:
 
 Example Usage (With bundled wallet files from BTCRecover)
 
-``python pywallet.py --datadir ./test-wallets --walletfile bitcoincore-0.20.1-wallet.dat --password btcr-test-password --dumpwallet``
+python pywallet.py --datadir ./test-wallets --walletfile bitcoincore-0.20.1-wallet.dat --password btcr-test-password --dumpwallet
