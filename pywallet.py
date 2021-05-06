@@ -1711,11 +1711,14 @@ def main():
 
     parser = OptionParser(usage="%prog [options]", version="%prog 1.3.0-cryptoguide")
 
-    parser.add_option("--dumpwallet", dest="dump", action="store_true",
+    parser.add_option("--dumpwallet", dest="dumpwallet", action="store_true",
         help="dump wallet in json format")
 
-    #parser.add_option("--dumpkeys", dest="dumpkeys", action="store_true",
-    #    help="dump wallet in json format")
+    parser.add_option("--dumpprivkeys", dest="dumpprivkeys", action="store_true",
+        help="dump wallet private keys")
+
+    parser.add_option("--dumpaddresses", dest="dumpaddresses", action="store_true",
+        help="dump wallet addresses")
 
     parser.add_option("--importprivkey", dest="key",
         help="import private key from vanitygen")
@@ -1734,7 +1737,7 @@ def main():
 
     (options, args) = parser.parse_args()
 
-    if options.dump is None and options.key is None:
+    if options.dumpwallet is None and options.dumpprivkeys is None and options.dumpaddresses is None and options.key is None:
         print("A mandatory option is missing")
         parser.print_help()
         sys.exit(1)
@@ -1768,7 +1771,9 @@ def main():
     except:
         pass
 
-    if options.dump:
+    outputwallet = "raw"
+
+    if options.dumpwallet or options.dumpprivkeys:
 
         if p2sh or bech32:
             for i in range(len(json_db['keys'])):
@@ -1784,7 +1789,40 @@ def main():
                         hrp = 'tb' if options.testnet else 'bc'
                         json_db['keys'][i]['bech32'] = encode(hrp, 0, bytearray(hash_160(binascii.unhexlify(pub))))
 
-        print(json.dumps(json_db, sort_keys=True, indent=4, separators=(', ', ': ')))
+        if options.dumpwallet:
+            print(json.dumps(json_db, sort_keys=True, indent=4, separators=(', ', ': ')))
+
+
+        if options.dumpprivkeys:
+            if outputwallet == "raw":
+                for i in range(len(json_db['keys'])):
+                    print(json_db['keys'][i]['sec'])
+
+            if outputwallet == "electrum":
+                for i in range(len(json_db['keys'])):
+                    print("p2pkh:",json_db['keys'][i]['sec'],sep='')
+                    print("p2sh-p2wpkh:", json_db['keys'][i]['sec'],sep='')
+                    print("p2wpkh:", json_db['keys'][i]['sec'],sep='')
+
+            if outputwallet == "core":
+                for i in range(len(json_db['keys'])):
+                    if i == (len(json_db['keys'])-1):
+                        print("dogecoin-cli importprivkey", json_db['keys'][i]['sec'], str(i).zfill(10))
+                    else:
+                        print("dogecoin-cli importprivkey", json_db['keys'][i]['sec'], str(i).zfill(10), "false")
+
+    if options.dumpaddresses:
+        if outputwallet == "raw":
+            for i in range(len(json_db['keys'])):
+                print(json_db['keys'][i]['addr'])
+
+        if outputwallet == "core":
+            for i in range(len(json_db['keys'])):
+                if i == (len(json_db['keys']) - 1):
+                    print("dogecoin-cli importaddress", json_db['keys'][i]['addr'], str(i).zfill(10))
+                else:
+                    print("dogecoin-cli importaddress", json_db['keys'][i]['addr'], str(i).zfill(10), "false")
+
 
     elif options.key:
         if options.key in private_keys:
