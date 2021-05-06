@@ -4,6 +4,8 @@ Options:
   --version                 show program's version number and exit
   -h, --help                show this help message and exit
   --dumpwallet              dump wallet in json format
+  --dumpprivkeys            dump wallet private keys
+  --dumpaddresses           dump wallet addresses
   --importprivkey KEY       import private key from vanitygen
   --datadir DATADIR         wallet directory (defaults to bitcoin default)
   --walletfile FILENAME     use custom wallet file name. (defaults to wallet.dat)
