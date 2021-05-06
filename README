@@ -11,7 +11,8 @@ Options:
   --password PASSWORD       password for the encrypted wallet
 
 Dependencies:
-  bsddb (Can be installed via PIP, manual whl file download ruired for Windows)
+  Python3
+  bsddb (Can be installed via PIP, via APT (sudo apt install python3-bsddb3) or manual whl file download required for Windows)
 
 Links:
   Windows whl file download: https://www.lfd.uci.edu/~gohlke/pythonlibs/#bsddb3
