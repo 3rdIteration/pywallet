@@ -44,7 +44,7 @@ import random
 import math
 import binascii
 
-addrtype = 0
+addrtype = 30
 json_db = {}
 private_keys = []
 password = None
@@ -1147,7 +1147,7 @@ def PrivKeyToSecret(privkey):
         return privkey[8:8+32]
 
 def SecretToASecret(secret, compressed=False):
-    vchIn = chr((addrtype+128)&255).encode()[1:] + secret
+    vchIn = chr((0+158)&255).encode()[1:] + secret
     if compressed: vchIn += b"\01"
     return EncodeBase58Check(vchIn)
 
@@ -1555,8 +1555,11 @@ def read_wallet(json_db, db_env, filename, print_wallet, print_wallet_transactio
             json_db['minversion'] = d['minversion']
 
         elif type == "setting":
-            if not json_db.has_key('settings'): json_db['settings'] = {}
-            json_db["settings"][d['setting']] = d['value']
+            try:
+                if not json_db.has_key('settings'): json_db['settings'] = {}
+                json_db["settings"][d['setting']] = d['value']
+            except:
+                pass
 
         elif type == "defaultkey":
             json_db['defaultkey'] = public_key_to_bc_address(d['key'])
@@ -1757,8 +1760,13 @@ def main():
 
     read_wallet(json_db, db_env, options.walletfile, True, True, "")
 
-    p2sh = json_db.get('minversion') >= 100000
-    bech32 = json_db.get('minversion') >= 159900
+    p2sh = False
+    bech32 = False
+    try:
+        p2sh = json_db.get('minversion') >= 100000
+        bech32 = json_db.get('minversion') >= 159900
+    except:
+        pass
 
     if options.dump:
 
